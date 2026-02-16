@@ -2,6 +2,10 @@
 
 一個用於管理 Pico-FIDO 和 Pico-HSM 裝置的桌面應用程式，基於 Tauri 2.0 + React + TypeScript 開發。
 
+## 介面預覽
+
+![程式介面](docs/display_1.png)
+
 ## 功能特色
 
 ### Pico-FIDO 管理
