@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+            target: aarch64-apple-darwin
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+            target: ""
+          - platform: windows-latest
+            args: ""
+            target: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libpcsclite-dev \
+            libudev-dev \
+            pkg-config
+
+      - name: Install dependencies (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install pcsc-lite
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Pico Config GUI ${{ github.ref_name }}"
+          releaseBody: |
+            ## Pico Config GUI ${{ github.ref_name }}
+
+            管理 Pico-FIDO 和 Pico-HSM 裝置的桌面應用程式。
+
+            ### 下載
+            - **Windows**: `.msi` 或 `.exe` 安裝檔
+            - **macOS (Apple Silicon)**: `_aarch64.dmg`
+            - **macOS (Intel)**: `_x64.dmg`
+            - **Linux**: `.deb` 或 `.AppImage`
+
+            ### 系統需求
+            - Windows 10/11
+            - macOS 10.15+
+            - Ubuntu 20.04+ 或其他支援 PC/SC 的 Linux 發行版
+
+            ### 注意事項
+            - Pico-HSM 需要 Smart Card 服務運行
+            - 首次使用請參閱 [教學指南](docs/HSM-教學指南.md)
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
